@@ -1,0 +1,19 @@
+{
+  "id": "./",
+  "name": "System Fieldnotes",
+  "short_name": "Fieldnotes",
+  "description": "A local-first dashboard for browser-visible network, Bluetooth, audio, and device signals.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f3f5f2",
+  "theme_color": "#f3f5f2",
+  "icons": [
+    {
+      "src": "./app-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

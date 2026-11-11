@@ -1,0 +1,1534 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f3f5f2">
+  <meta name="description" content="A local-first system dashboard for browser-visible network, Bluetooth, and device signals.">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" href="./app-icon.svg" type="image/svg+xml">
+  <title>System Fieldnotes</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --paper: #f3f5f2;
+      --ink: #17231f;
+      --muted: #66746d;
+      --line: #dce3dd;
+      --green: #18764f;
+      --green-soft: #e2efe7;
+      --amber: #ab681d;
+      --amber-soft: #f6ebd9;
+      --blue: #356a97;
+      --blue-soft: #e3edf4;
+      --red: #b1483b;
+      --white: #fff;
+      --mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+      --sans: "Avenir Next", Avenir, "Segoe UI", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-width: 320px;
+      color: var(--ink);
+      background-color: var(--paper);
+      background-image: radial-gradient(#cbd5cd 0.65px, transparent 0.65px);
+      background-size: 15px 15px;
+      font-family: var(--sans);
+      font-size: 14px;
+    }
+    button, select { font: inherit; }
+    button { color: inherit; }
+    .shell { max-width: 1180px; margin: 0 auto; padding: 28px 34px 52px; }
+    .topline { display: flex; justify-content: space-between; align-items: center; padding-bottom: 20px; border-bottom: 1px solid var(--line); }
+    .brand { display: flex; align-items: center; gap: 11px; font-size: 12px; font-weight: 750; letter-spacing: .08em; text-transform: uppercase; }
+    .brand-mark { width: 25px; height: 25px; display: grid; place-items: center; border: 1px solid var(--green); color: var(--green); font: 700 12px var(--mono); transform: rotate(-6deg); }
+    .local-tag { color: var(--muted); font: 11px var(--mono); text-transform: uppercase; letter-spacing: .04em; }
+    .install-controls { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 7px; }
+    .install-controls .diagnostic-action { margin: 0; }
+    .install-status { color: var(--muted); font: 9px var(--mono); }
+    .intro { display: flex; justify-content: space-between; align-items: end; gap: 20px; padding: 37px 0 29px; }
+    .eyebrow { color: var(--green); font: 11px var(--mono); text-transform: uppercase; letter-spacing: .12em; }
+    h1 { margin: 8px 0 7px; font: 500 40px/1.05 Georgia, "Times New Roman", serif; letter-spacing: 0; }
+    .intro p { max-width: 590px; margin: 0; color: var(--muted); line-height: 1.55; }
+    .refresh { flex: 0 0 auto; display: inline-flex; gap: 9px; align-items: center; border: 1px solid var(--ink); background: var(--ink); color: #fff; padding: 11px 15px; cursor: pointer; }
+    .refresh:hover { background: var(--green); border-color: var(--green); }
+    .refresh:disabled { opacity: .65; cursor: wait; }
+    .refresh-icon { font: 18px var(--mono); line-height: 12px; }
+    .boundary { display: flex; gap: 12px; align-items: flex-start; margin: 0 0 26px; padding: 13px 15px; background: #e9eee9; border-left: 3px solid var(--amber); color: #45554d; font-size: 12px; line-height: 1.5; }
+    .boundary strong { color: var(--ink); }
+    .section-heading { display: flex; justify-content: space-between; align-items: baseline; margin: 0 0 10px; }
+    .section-heading h2 { margin: 0; font-size: 13px; font-weight: 750; text-transform: uppercase; letter-spacing: .055em; }
+    .section-heading span { color: var(--muted); font: 11px var(--mono); }
+    .systems { border-top: 1px solid var(--ink); }
+    .system { display: grid; grid-template-columns: minmax(190px, 1.1fr) minmax(185px, .9fr) minmax(210px, 1.25fr) auto; gap: 18px; align-items: center; min-height: 87px; padding: 16px 5px; border-bottom: 1px solid var(--line); }
+    .system-name { display: flex; align-items: center; gap: 12px; }
+    .system-icon { width: 34px; height: 34px; display: grid; place-items: center; border: 1px solid var(--line); background: #fff; color: var(--green); font: 15px var(--mono); }
+    .system-name h3 { margin: 0 0 3px; font-size: 14px; font-weight: 700; }
+    .system-name small, .system-detail { color: var(--muted); font-size: 12px; }
+    .status { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 650; }
+    .dot { width: 8px; height: 8px; flex: 0 0 auto; border-radius: 50%; background: #9aa59f; }
+    .status[data-state="good"] .dot { background: var(--green); }
+    .status[data-state="warn"] .dot { background: var(--amber); }
+    .status[data-state="bad"] .dot { background: var(--red); }
+    .system-detail { line-height: 1.45; }
+    .action { justify-self: end; min-width: 104px; padding: 8px 10px; border: 1px solid #b8c5bb; background: transparent; color: var(--ink); font-size: 11px; cursor: pointer; }
+    .action:hover:not(:disabled) { background: var(--green-soft); border-color: var(--green); }
+    .action:disabled { color: #7d8981; cursor: default; }
+    .diagnostics { margin-top: 31px; }
+    .diagnostic-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 1px solid var(--ink); border-bottom: 1px solid var(--line); }
+    .diagnostic-panel { min-width: 0; padding: 17px 18px 18px 0; }
+    .diagnostic-panel + .diagnostic-panel { padding-left: 18px; border-left: 1px solid var(--line); }
+    .diagnostic-panel h3 { margin: 0 0 13px; font-size: 12px; text-transform: uppercase; letter-spacing: .05em; }
+    .diagnostic-list { margin: 0; }
+    .diagnostic-item { display: flex; justify-content: space-between; gap: 12px; padding: 7px 0; border-bottom: 1px solid #e8ece8; font-size: 11px; }
+    .diagnostic-item dt { color: var(--muted); }
+    .diagnostic-item dd { margin: 0; max-width: 62%; text-align: right; overflow-wrap: anywhere; font-family: var(--mono); }
+    .diagnostic-action { margin-top: 13px; padding: 8px 10px; border: 1px solid #b8c5bb; background: #fff; cursor: pointer; font-size: 11px; }
+    .diagnostic-action:hover:not(:disabled) { border-color: var(--green); background: var(--green-soft); }
+    .diagnostic-action:disabled { opacity: .6; cursor: wait; }
+    .diagnostic-result { min-height: 32px; margin: 10px 0 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
+    .device-list { color: var(--muted); font: 10px/1.5 var(--mono); overflow-wrap: anywhere; }
+    .bluetooth-explorer { margin-top: 37px; padding-top: 20px; border-top: 1px solid var(--ink); }
+    .bluetooth-intro { max-width: 850px; margin: 0 0 16px; color: var(--muted); font-size: 12px; line-height: 1.6; }
+    .bt-layout { display: grid; grid-template-columns: minmax(250px, .75fr) minmax(0, 1.6fr); gap: 28px; }
+    .bt-controls { padding-right: 22px; border-right: 1px solid var(--line); }
+    .bt-controls h3, .bt-content h3 { margin: 0 0 11px; font-size: 12px; text-transform: uppercase; letter-spacing: .05em; }
+    .bt-controls > p { margin: 0 0 12px; color: var(--muted); font-size: 11px; line-height: 1.5; }
+    .bt-scopes { display: grid; gap: 5px; max-height: 335px; overflow: auto; padding: 2px 6px 2px 0; }
+    .bt-scope { display: flex; align-items: flex-start; gap: 8px; padding: 6px 0; border-bottom: 1px solid #e8ece8; font-size: 11px; line-height: 1.4; }
+    .bt-scope input { margin: 2px 0 0; accent-color: var(--green); }
+    .bt-scope code { display: block; color: var(--muted); font: 9px var(--mono); overflow-wrap: anywhere; }
+    .bt-uuid-label { display: block; margin-top: 12px; font-size: 11px; font-weight: 650; }
+    .bt-uuid-input { width: 100%; margin-top: 6px; padding: 8px; border: 1px solid #b8c5bb; background: #fff; color: var(--ink); font: 10px var(--mono); }
+    .bt-uuid-help { margin-top: 5px !important; color: var(--muted); font-size: 10px !important; }
+    .bt-actions { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 14px; }
+    .bt-actions button { padding: 8px 10px; border: 1px solid #b8c5bb; background: #fff; cursor: pointer; font-size: 11px; }
+    .bt-actions .primary { background: var(--ink); color: #fff; border-color: var(--ink); }
+    .bt-actions button:hover:not(:disabled) { background: var(--green-soft); border-color: var(--green); color: var(--ink); }
+    .bt-actions button:disabled { opacity: .48; cursor: not-allowed; }
+    .bt-status { min-height: 38px; margin: 11px 0 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
+    .bt-meta { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 18px; margin: 0 0 22px; border-top: 1px solid var(--line); }
+    .bt-service-list { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 20px; padding: 0; list-style: none; }
+    .bt-service-list li { padding: 6px 8px; border: 1px solid var(--line); background: #fff; font: 10px var(--mono); }
+    .bt-table-wrap { max-width: 100%; overflow-x: auto; border-top: 1px solid var(--ink); }
+    .bt-table { width: 100%; border-collapse: collapse; text-align: left; font-size: 10px; }
+    .bt-table th, .bt-table td { min-width: 105px; padding: 9px 10px 9px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+    .bt-table th:last-child, .bt-table td:last-child { min-width: 90px; }
+    .bt-table th { color: var(--muted); font: 10px var(--mono); text-transform: uppercase; }
+    .bt-table td code { display: block; color: var(--muted); font: 9px/1.45 var(--mono); overflow-wrap: anywhere; }
+    .bt-table .bt-value { min-width: 220px; max-width: 420px; overflow-wrap: anywhere; font: 10px/1.45 var(--mono); }
+    .bt-empty { color: var(--muted); font-size: 11px; line-height: 1.5; }
+    .bt-inline { padding: 5px 7px; border: 1px solid #b8c5bb; background: #fff; cursor: pointer; font-size: 10px; white-space: nowrap; }
+    .bt-inline:hover:not(:disabled) { background: var(--green-soft); border-color: var(--green); }
+    .bt-inline:disabled { color: var(--muted); cursor: default; }
+    .bt-capabilities { margin-top: 14px; border-top: 1px solid var(--line); }
+    .bt-capabilities summary { padding: 10px 0; cursor: pointer; font-size: 11px; font-weight: 700; }
+    .bt-cap-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 13px; padding-bottom: 12px; }
+    .bt-cap-grid h4 { margin: 0 0 6px; font-size: 10px; text-transform: uppercase; }
+    .bt-cap-grid ul { margin: 0; padding-left: 15px; color: var(--muted); font-size: 10px; line-height: 1.55; }
+    .bt-cap-grid li { margin-bottom: 4px; }
+    .bt-advertisement { min-height: 36px; max-height: 190px; overflow: auto; margin: 10px 0 20px; padding: 10px; background: #e9eee9; color: #45554d; white-space: pre-wrap; overflow-wrap: anywhere; font: 10px/1.5 var(--mono); }
+    .bt-audio { margin-top: 28px; padding: 20px 0 4px; border-top: 1px solid var(--line); }
+    .bt-audio-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; }
+    .bt-audio-block { min-width: 0; }
+    .bt-audio-block h3 { margin: 0 0 8px; font-size: 12px; text-transform: uppercase; letter-spacing: .05em; }
+    .bt-audio-block p { margin: 0 0 12px; color: var(--muted); font-size: 11px; line-height: 1.55; }
+    .bt-audio-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 10px 0; }
+    .bt-audio-row select { min-width: 150px; flex: 1 1 180px; }
+    .bt-audio-row button { padding: 8px 10px; border: 1px solid #b8c5bb; background: #fff; cursor: pointer; font-size: 11px; }
+    .bt-audio-row button:hover:not(:disabled) { background: var(--green-soft); border-color: var(--green); }
+    .bt-audio-row button:disabled { opacity: .5; cursor: not-allowed; }
+    .bt-audio-file { max-width: 100%; font-size: 11px; }
+    .bt-audio-range { width: 100%; accent-color: var(--green); }
+    .bt-audio-status { min-height: 30px; margin: 8px 0 0 !important; color: var(--green) !important; font: 10px/1.5 var(--mono) !important; }
+    .bt-audio-warning { padding: 9px 10px; border-left: 2px solid var(--amber); background: var(--amber-soft); color: #5e4d35 !important; }
+    .endpoint-list { display: grid; gap: 5px; margin: 10px 0 0; padding: 0; list-style: none; font-size: 11px; }
+    .endpoint-list li { display: flex; justify-content: space-between; gap: 10px; padding-top: 6px; border-top: 1px solid #e8ece8; }
+    .endpoint-list strong { text-align: right; font: 10px var(--mono); }
+    .explainers { display: grid; grid-template-columns: 1fr 1fr; gap: 0 28px; margin-top: 18px; border-top: 1px solid var(--line); }
+    .explainers details { padding: 13px 0; border-bottom: 1px solid var(--line); }
+    .explainers summary { cursor: pointer; font-size: 12px; font-weight: 700; }
+    .explainers p { margin: 10px 0 2px; color: var(--muted); font-size: 11px; line-height: 1.6; }
+    .lower { display: grid; grid-template-columns: 1.2fr .8fr; gap: 44px; margin-top: 37px; }
+    .settings { border-top: 1px solid var(--ink); }
+    .setting { display: flex; justify-content: space-between; align-items: center; gap: 20px; padding: 15px 2px; border-bottom: 1px solid var(--line); }
+    .setting strong { display: block; margin-bottom: 4px; font-size: 12px; }
+    .setting p { margin: 0; color: var(--muted); font-size: 11px; line-height: 1.45; }
+    select { min-width: 112px; padding: 8px 9px; border: 1px solid #b8c5bb; background: #fff; color: var(--ink); }
+    .switch { position: relative; width: 38px; height: 22px; flex: 0 0 auto; }
+    .switch input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+    .slider { position: absolute; inset: 0; border-radius: 14px; background: #c4ccc6; cursor: pointer; transition: background .18s ease; }
+    .slider::after { content: ""; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: white; transition: transform .18s ease; }
+    .switch input:checked + .slider { background: var(--green); }
+    .switch input:checked + .slider::after { transform: translateX(16px); }
+    .switch input:focus-visible + .slider { outline: 2px solid var(--blue); outline-offset: 3px; }
+    .notes { padding-top: 2px; }
+    .notes h2 { margin: 0 0 12px; font: 500 23px Georgia, "Times New Roman", serif; }
+    .notes p { margin: 0 0 12px; color: var(--muted); font-size: 12px; line-height: 1.6; }
+    .notes .timestamp { padding-top: 10px; border-top: 1px solid var(--line); color: var(--green); font: 11px var(--mono); }
+    .foot { display: flex; justify-content: space-between; gap: 12px; margin-top: 36px; padding-top: 14px; border-top: 1px solid var(--line); color: var(--muted); font: 10px var(--mono); }
+    @media (max-width: 760px) {
+      .shell { padding: 20px 19px 36px; }
+      .intro { align-items: flex-start; flex-direction: column; padding: 30px 0 23px; }
+      h1 { font-size: 34px; }
+      .system { grid-template-columns: minmax(0, 1fr) auto; gap: 9px 12px; padding: 14px 2px; }
+      .system-name { grid-column: 1; }
+      .status { grid-column: 2; grid-row: 1; justify-self: end; }
+      .system-detail { grid-column: 1; padding-left: 46px; }
+      .action { grid-column: 2; grid-row: 2; }
+      .lower { grid-template-columns: 1fr; gap: 31px; margin-top: 29px; }
+      .diagnostic-grid { grid-template-columns: 1fr; }
+      .diagnostic-panel { padding: 15px 0; }
+      .diagnostic-panel + .diagnostic-panel { padding-left: 0; border-left: 0; border-top: 1px solid var(--line); }
+      .explainers { grid-template-columns: 1fr; }
+      .bt-layout { grid-template-columns: 1fr; gap: 19px; }
+      .bt-controls { padding: 0 0 18px; border-right: 0; border-bottom: 1px solid var(--line); }
+      .bt-meta { grid-template-columns: 1fr; }
+      .bt-audio-grid { grid-template-columns: 1fr; gap: 18px; }
+      .bt-cap-grid { grid-template-columns: 1fr; }
+      .local-tag { font-size: 9px; }
+    }
+    @media (max-width: 420px) {
+      .status { max-width: 118px; text-align: right; line-height: 1.35; }
+      .action { min-width: 94px; }
+      .foot { flex-direction: column; }
+    }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition-duration: .01ms !important; } }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header class="topline">
+      <div class="brand"><span class="brand-mark" aria-hidden="true">SF</span> System Fieldnotes</div>
+      <div class="install-controls">
+        <button class="diagnostic-action" id="install-app" type="button" hidden>Install app</button>
+        <button class="diagnostic-action" id="update-app" type="button" hidden>Update ready · reload</button>
+        <span class="install-status" id="app-status" role="status" aria-live="polite">Checking app install status...</span>
+      </div>
+      <div class="local-tag">Local browser view / No account</div>
+    </header>
+
+    <section class="intro" aria-labelledby="page-title">
+      <div>
+        <div class="eyebrow">Device overview / 01</div>
+        <h1 id="page-title">Your systems, at a glance.</h1>
+        <p>A live snapshot of the system signals this browser is allowed to see, with direct controls where the web platform permits them.</p>
+      </div>
+      <button class="refresh" id="refresh" type="button"><span class="refresh-icon" aria-hidden="true">↻</span> Refresh status</button>
+    </section>
+
+    <aside class="boundary" role="note">
+      <span aria-hidden="true">i</span>
+      <div><strong>Browser boundary.</strong> This page cannot read or change most operating-system settings, scan nearby devices in the background, or enumerate existing P2P peers. Device access is only requested when you choose an action below.</div>
+    </aside>
+
+    <section aria-labelledby="systems-title">
+      <div class="section-heading"><h2 id="systems-title">System signals</h2><span id="checked-at">Checking...</span></div>
+      <div class="systems">
+        <article class="system">
+          <div class="system-name"><span class="system-icon" aria-hidden="true">↗</span><div><h3>Internet</h3><small>Network reachability</small></div></div>
+          <div class="status" id="internet-status" data-state=""><span class="dot"></span><span class="status-text">Checking...</span></div>
+          <div class="system-detail" id="internet-detail">Reading browser network signal.</div>
+          <button class="action" id="internet-action" type="button">Run in-page test</button>
+        </article>
+        <article class="system">
+          <div class="system-name"><span class="system-icon" aria-hidden="true">⌁</span><div><h3>Bluetooth</h3><small>Nearby device access</small></div></div>
+          <div class="status" id="bluetooth-status" data-state=""><span class="dot"></span><span class="status-text">Checking...</span></div>
+          <div class="system-detail" id="bluetooth-detail">Checking browser support.</div>
+          <button class="action" id="bluetooth-action" type="button">Open explorer</button>
+        </article>
+        <article class="system">
+          <div class="system-name"><span class="system-icon" aria-hidden="true">⇄</span><div><h3>Peer-to-peer</h3><small>WebRTC connections</small></div></div>
+          <div class="status" id="p2p-status" data-state=""><span class="dot"></span><span class="status-text">Checking...</span></div>
+          <div class="system-detail" id="p2p-detail">Checking browser support.</div>
+          <button class="action" id="p2p-action" type="button">Local test</button>
+        </article>
+        <article class="system">
+          <div class="system-name"><span class="system-icon" aria-hidden="true">⌖</span><div><h3>Location</h3><small>Permission state</small></div></div>
+          <div class="status" id="location-status" data-state=""><span class="dot"></span><span class="status-text">Checking...</span></div>
+          <div class="system-detail" id="location-detail">Checking permission without requesting access.</div>
+          <button class="action" id="location-action" type="button">Request access</button>
+        </article>
+        <article class="system">
+          <div class="system-name"><span class="system-icon" aria-hidden="true">N</span><div><h3>Notifications</h3><small>Browser permission</small></div></div>
+          <div class="status" id="notifications-status" data-state=""><span class="dot"></span><span class="status-text">Checking...</span></div>
+          <div class="system-detail" id="notifications-detail">Checking browser permission.</div>
+          <button class="action" id="notifications-action" type="button">Request access</button>
+        </article>
+      </div>
+    </section>
+
+    <section class="diagnostics" aria-labelledby="diagnostics-title">
+      <div class="section-heading"><h2 id="diagnostics-title">Detailed diagnostics</h2><span>Browser-visible information</span></div>
+      <div class="diagnostic-grid">
+        <article class="diagnostic-panel">
+          <h3>Network details</h3>
+          <dl class="diagnostic-list">
+            <div class="diagnostic-item"><dt>Connection type</dt><dd id="network-type">Not exposed</dd></div>
+            <div class="diagnostic-item"><dt>Browser online signal</dt><dd id="network-online">Checking...</dd></div>
+            <div class="diagnostic-item"><dt>Effective speed</dt><dd id="network-speed">Not exposed</dd></div>
+            <div class="diagnostic-item"><dt>Estimated latency</dt><dd id="network-rtt">Not exposed</dd></div>
+            <div class="diagnostic-item"><dt>Data saver</dt><dd id="network-saver">Not exposed</dd></div>
+          </dl>
+          <div class="bt-audio-row"><label for="internet-rounds">Rounds</label><select id="internet-rounds"><option value="1">1 round</option><option value="3" selected>3 rounds</option></select><button class="diagnostic-action" id="internet-action-detail" type="button">Run endpoint test</button></div>
+          <p class="diagnostic-result" id="internet-probe" aria-live="polite">No test run. Four public endpoints are tested only when you start a run.</p>
+          <ul class="endpoint-list" aria-label="Endpoint probe results">
+            <li><span>Google connectivity endpoint</span><strong id="probe-google">Not run</strong></li>
+            <li><span>Cloudflare diagnostic endpoint</span><strong id="probe-cloudflare">Not run</strong></li>
+            <li><span>Mozilla site endpoint</span><strong id="probe-mozilla">Not run</strong></li>
+            <li><span>Wikipedia site endpoint</span><strong id="probe-wikipedia">Not run</strong></li>
+          </ul>
+        </article>
+        <article class="diagnostic-panel">
+          <h3>Device &amp; browser</h3>
+          <dl class="diagnostic-list">
+            <div class="diagnostic-item"><dt>Platform</dt><dd id="device-platform">Not exposed</dd></div>
+            <div class="diagnostic-item"><dt>Processor threads</dt><dd id="device-threads">Not exposed</dd></div>
+            <div class="diagnostic-item"><dt>Memory estimate</dt><dd id="device-memory">Not exposed</dd></div>
+            <div class="diagnostic-item"><dt>Display</dt><dd id="device-display">Not exposed</dd></div>
+            <div class="diagnostic-item"><dt>Secure context</dt><dd id="device-secure">Not exposed</dd></div>
+            <div class="diagnostic-item"><dt>Storage used</dt><dd id="device-storage">Checking...</dd></div>
+          </dl>
+        </article>
+        <article class="diagnostic-panel">
+          <h3>Bluetooth connection</h3>
+          <div class="system-detail" id="bluetooth-devices">Previously authorized devices will appear here when the browser supports listing them.</div>
+          <button class="diagnostic-action" id="bluetooth-action-detail" type="button">Open Bluetooth Explorer</button>
+          <dl class="diagnostic-list">
+            <div class="diagnostic-item"><dt>Selected device</dt><dd id="bluetooth-device-name">None</dd></div>
+            <div class="diagnostic-item"><dt>GATT link</dt><dd id="bluetooth-link">Not connected</dd></div>
+            <div class="diagnostic-item"><dt>Accessible services</dt><dd id="bluetooth-services">Not inspected</dd></div>
+            <div class="diagnostic-item"><dt>Battery level</dt><dd id="bluetooth-battery">Not available</dd></div>
+          </dl>
+          <p class="diagnostic-result">Select service scopes, connect to a device, then inspect the data it exposes.</p>
+        </article>
+      </div>
+      <div class="diagnostic-grid" style="margin-top:22px">
+        <article class="diagnostic-panel">
+          <h3>Peer connection lab</h3>
+          <dl class="diagnostic-list">
+            <div class="diagnostic-item"><dt>Test peers</dt><dd id="p2p-peers">None</dd></div>
+            <div class="diagnostic-item"><dt>ICE servers</dt><dd id="p2p-ice-servers">None</dd></div>
+            <div class="diagnostic-item"><dt>Gathered candidates</dt><dd id="p2p-candidates">Not tested</dd></div>
+            <div class="diagnostic-item"><dt>Data channel</dt><dd id="p2p-channel-state">Closed</dd></div>
+            <div class="diagnostic-item"><dt>Echo round trips</dt><dd id="p2p-rtt">Not tested</dd></div>
+            <div class="diagnostic-item"><dt>Transferred data</dt><dd id="p2p-bytes">0 bytes</dd></div>
+          </dl>
+          <p class="diagnostic-result">A local-only five-message echo test. No STUN/TURN server or external peer is used.</p>
+        </article>
+        <article class="diagnostic-panel">
+          <h3>Location reading</h3>
+          <dl class="diagnostic-list">
+            <div class="diagnostic-item"><dt>Latitude</dt><dd id="location-latitude">Not requested</dd></div>
+            <div class="diagnostic-item"><dt>Longitude</dt><dd id="location-longitude">Not requested</dd></div>
+            <div class="diagnostic-item"><dt>Accuracy</dt><dd id="location-accuracy">Not requested</dd></div>
+            <div class="diagnostic-item"><dt>Altitude</dt><dd id="location-altitude">Not provided</dd></div>
+            <div class="diagnostic-item"><dt>Speed / heading</dt><dd id="location-motion">Not provided</dd></div>
+            <div class="diagnostic-item"><dt>Reading time</dt><dd id="location-timestamp">Not requested</dd></div>
+          </dl>
+          <button class="diagnostic-action" id="location-action-detail" type="button">Get one location reading</button>
+          <p class="diagnostic-result">Coordinates stay on this page and are not saved. The browser may use GPS, Wi-Fi, or network location.</p>
+        </article>
+        <article class="diagnostic-panel">
+          <h3>Notification check</h3>
+          <dl class="diagnostic-list">
+            <div class="diagnostic-item"><dt>Permission</dt><dd id="notification-permission">Checking...</dd></div>
+            <div class="diagnostic-item"><dt>Service worker</dt><dd id="notification-worker">Checking...</dd></div>
+            <div class="diagnostic-item"><dt>Last test</dt><dd id="notification-last-test">Not tested</dd></div>
+          </dl>
+          <div class="bt-audio-row"><button class="diagnostic-action" id="notification-test" type="button">Send local test notification</button></div>
+          <p class="diagnostic-result">This test creates a notification on this device only; it does not send push messages or contact a server.</p>
+        </article>
+      </div>
+      <section class="bt-audio" aria-labelledby="bt-audio-title">
+        <div class="section-heading"><h2 id="bt-audio-title">Bluetooth audio output</h2><span>Browser audio route</span></div>
+        <p class="bluetooth-intro">Audio playback uses the browser's audio-output system, not the GATT data connection above. If your Bluetooth speaker or headset is paired and available as a computer audio output, you can route sound to it here.</p>
+        <div class="bt-audio-grid">
+          <div class="bt-audio-block">
+            <h3>Choose output</h3>
+            <p>The browser may ask permission before listing or selecting audio outputs. “Default” follows the operating-system output setting.</p>
+            <div class="bt-audio-row">
+              <select id="bt-audio-output" aria-label="Audio output device"><option value="default">System default output</option></select>
+              <button id="bt-audio-choose" type="button">Choose output</button>
+              <button id="bt-audio-refresh" type="button">Refresh list</button>
+            </div>
+            <label class="bt-audio-row" for="bt-audio-volume">Output level <input id="bt-audio-volume" type="range" min="0" max="0.2" value="0.08" step="0.01" aria-label="Output level, capped at 20 percent"></label>
+            <p class="bt-audio-warning">The test beep is short and capped at 20% player volume. Start low; your operating-system or speaker volume can still make sound unexpectedly loud.</p>
+            <div class="bt-audio-row"><button id="bt-audio-beep" type="button">Play short test beep</button></div>
+            <p class="bt-audio-status" id="bt-audio-status" role="status" aria-live="polite">Audio output has not been selected.</p>
+          </div>
+          <div class="bt-audio-block">
+            <h3>Play a local audio file</h3>
+            <p>Choose an audio file from this device. Playback stays in this page and is not uploaded.</p>
+            <input class="bt-audio-file" id="bt-audio-file" type="file" accept="audio/*" aria-label="Choose an audio file">
+            <div class="bt-audio-row">
+              <button id="bt-audio-play" type="button" disabled>Play</button>
+              <button id="bt-audio-stop" type="button" disabled>Stop</button>
+              <span id="bt-audio-time">0:00 / 0:00</span>
+            </div>
+            <input class="bt-audio-range" id="bt-audio-seek" type="range" min="0" max="1000" value="0" aria-label="Audio position" disabled>
+            <audio id="bt-audio-player" preload="metadata" hidden></audio>
+            <audio id="bt-audio-test-player" preload="none" hidden></audio>
+          </div>
+        </div>
+      </section>
+      <div class="explainers">
+        <details>
+          <summary>Internet: what the readings mean</summary>
+          <p>The online signal is the browser's own hint and can be wrong. Effective type, round-trip estimate, downlink estimate, and data-saver state come from the optional Network Information API; many browsers do not expose it. The test sends small requests to Google, Cloudflare, Mozilla, and Wikipedia; choose one or three rounds to compare average, minimum, and maximum request times. A completed no-cors request is opaque: browser privacy rules hide its HTTP status and contents, so it is only a rough reachability signal. This is not a bandwidth speed test, DNS diagnosis, Wi-Fi signal reading, or proof that every site works.</p>
+        </details>
+        <details>
+          <summary>Bluetooth: discovery, connection, and services</summary>
+          <p>“Available” means the browser reports a usable Bluetooth adapter; it does not mean a device is paired or connected. The device chooser is controlled by the browser and operating system. Once you select a device, this page attempts a GATT connection and reads battery level only if the device exposes the standard Battery service. The browser grants access only to the requested Battery and Device Information services; it does not show nearby devices, pairing keys, signal strength, or OS-wide connection history. Disconnecting here ends this page's GATT session.</p>
+        </details>
+      </div>
+      <p class="diagnostic-result" id="p2p-result" aria-live="polite">The local P2P test creates two temporary peers in this page only. It does not scan for or contact outside peers.</p>
+    </section>
+
+    <section class="bluetooth-explorer" id="bluetooth-explorer" aria-labelledby="bluetooth-explorer-title">
+      <div class="section-heading"><h2 id="bluetooth-explorer-title">Bluetooth Explorer</h2><span id="bt-support">Checking browser support...</span></div>
+      <p class="bluetooth-intro">Choose a Bluetooth Low Energy (BLE) device, connect to its GATT server, discover the services you authorized, and read data from readable characteristics and descriptors. This page never writes to the device; classic Bluetooth audio and serial profiles are not exposed by the browser API.</p>
+      <aside class="boundary" role="note"><span aria-hidden="true">!</span><div><strong>Permission and privacy.</strong> Health-related services can expose personal measurements. Select only the services you want to inspect. Values stay in this page's memory and are not uploaded or saved. The browser does not expose MAC addresses, pairing keys, every OS-paired device, or services you did not authorize.</div></aside>
+      <div class="bt-layout">
+        <aside class="bt-controls" aria-labelledby="bt-scope-title">
+          <h3 id="bt-scope-title">Services to request</h3>
+          <p>Choose service scopes before connecting. The browser will ask you to select a device.</p>
+          <div class="bt-scopes">
+            <label class="bt-scope"><input type="checkbox" name="bt-service" value="battery_service" checked><span>Battery<code>battery_service</code></span></label>
+            <label class="bt-scope"><input type="checkbox" name="bt-service" value="device_information" checked><span>Device information<code>device_information</code></span></label>
+            <label class="bt-scope"><input type="checkbox" name="bt-service" value="heart_rate"><span>Heart rate<code>heart_rate</code></span></label>
+            <label class="bt-scope"><input type="checkbox" name="bt-service" value="health_thermometer"><span>Health thermometer<code>health_thermometer</code></span></label>
+            <label class="bt-scope"><input type="checkbox" name="bt-service" value="blood_pressure"><span>Blood pressure<code>blood_pressure</code></span></label>
+            <label class="bt-scope"><input type="checkbox" name="bt-service" value="glucose"><span>Glucose<code>glucose</code></span></label>
+            <label class="bt-scope"><input type="checkbox" name="bt-service" value="body_composition"><span>Body composition<code>body_composition</code></span></label>
+            <label class="bt-scope"><input type="checkbox" name="bt-service" value="weight_scale"><span>Weight scale<code>weight_scale</code></span></label>
+            <label class="bt-scope"><input type="checkbox" name="bt-service" value="pulse_oximeter"><span>Pulse oximeter<code>pulse_oximeter</code></span></label>
+            <label class="bt-scope"><input type="checkbox" name="bt-service" value="cycling_speed_and_cadence"><span>Cycling speed and cadence<code>cycling_speed_and_cadence</code></span></label>
+            <label class="bt-scope"><input type="checkbox" name="bt-service" value="running_speed_and_cadence"><span>Running speed and cadence<code>running_speed_and_cadence</code></span></label>
+            <label class="bt-scope"><input type="checkbox" name="bt-service" value="environmental_sensing"><span>Environmental sensing<code>environmental_sensing</code></span></label>
+            <label class="bt-scope"><input type="checkbox" name="bt-service" value="human_interface_device"><span>Human interface device<code>human_interface_device</code></span></label>
+            <label class="bt-scope"><input type="checkbox" name="bt-service" value="alert_notification"><span>Alert notifications<code>alert_notification</code></span></label>
+            <label class="bt-scope"><input type="checkbox" name="bt-service" value="current_time"><span>Current time<code>current_time</code></span></label>
+          </div>
+          <label class="bt-uuid-label" for="bt-custom-services">Additional service UUIDs</label>
+          <input class="bt-uuid-input" id="bt-custom-services" type="text" placeholder="e.g. 12345678-1234-5678-1234-56789abcdef0" autocomplete="off" spellcheck="false">
+          <p class="bt-uuid-help">Comma or space separated 16-, 32-, or 128-bit service UUIDs. Use this for device-vendor services you already know.</p>
+          <div class="bt-actions">
+            <button class="primary" id="bt-connect" type="button">Choose and connect</button>
+            <button id="bt-discover" type="button" disabled>Refresh services</button>
+            <button id="bt-read-values" type="button" disabled>Read all values</button>
+            <button id="bt-watch" type="button" disabled>Watch advertisements</button>
+            <button id="bt-disconnect" type="button" disabled>Disconnect</button>
+          </div>
+          <p class="bt-status" id="bt-explorer-status" role="status" aria-live="polite">No device selected. Choose service scopes, then connect.</p>
+        </aside>
+        <div class="bt-content">
+          <h3>Device details</h3>
+          <dl class="bt-meta">
+            <div class="diagnostic-item"><dt>Name</dt><dd id="bt-device-name">None</dd></div>
+            <div class="diagnostic-item"><dt>Browser device ID</dt><dd id="bt-device-id">Not exposed</dd></div>
+            <div class="diagnostic-item"><dt>GATT server</dt><dd id="bt-gatt-state">Not connected</dd></div>
+            <div class="diagnostic-item"><dt>Granted scopes</dt><dd id="bt-granted-scopes">None</dd></div>
+          </dl>
+          <h3>Discovered services</h3>
+          <ul class="bt-service-list" id="bt-services-list"><li>Connect to discover authorized services.</li></ul>
+          <h3>Characteristics and descriptors</h3>
+          <p class="bt-empty">Properties show available operations. Values are pulled from readable fields after connection; binary values are shown as hex and printable text.</p>
+          <div class="bt-table-wrap"><table class="bt-table"><thead><tr><th>Service</th><th>Characteristic / descriptor</th><th>Properties</th><th>Returned data</th><th>Live data</th></tr></thead><tbody id="bt-data-rows"><tr><td class="bt-empty" colspan="5">No device connected.</td></tr></tbody></table></div>
+          <h3 style="margin-top:22px">Selected-device advertisements</h3>
+          <p class="bt-empty">When supported, this listens only for broadcasts from the device you selected and may report RSSI, transmit power, advertised services, and manufacturer data.</p>
+          <pre class="bt-advertisement" id="bt-advertisement">Not listening.</pre>
+        </div>
+      </div>
+      <details class="bt-capabilities" id="bt-capabilities-menu" open>
+        <summary>Device capability menu · updates with connection status</summary>
+        <div class="bt-cap-grid">
+          <section><h4>Available now</h4><ul id="bt-cap-available"><li>Choose a device to see available actions.</li></ul></section>
+          <section><h4>Conditional on device / permission</h4><ul id="bt-cap-conditional"><li>Service and live-data capabilities are unknown until a device is selected.</li></ul></section>
+          <section><h4>Unavailable here</h4><ul id="bt-cap-unavailable"><li>System-wide Bluetooth settings and other apps' connections are not visible to this page.</li></ul></section>
+        </div>
+      </details>
+      <div class="explainers">
+        <details><summary>What the GATT explorer can see</summary><p>Services group characteristics. Characteristics advertise read, write, notify, and indicate properties; descriptors provide metadata or configuration. The explorer enumerates granted services, lists their characteristics and descriptors, and reads only fields marked readable. It does not write. The returned bytes are raw values; profile-specific formats may need decoding to turn them into measurements.</p></details>
+        <details><summary>Why this cannot show everything from every device</summary><p>Web Bluetooth requires a user gesture and a browser chooser. The browser cannot silently scan all devices or expose every paired device, MAC address, pairing key, or OS connection. Standard services and optional vendor UUIDs can be requested before connecting, but the device must expose them. Advertisement monitoring may provide RSSI and broadcast data in supported browsers; this is not a general radio scanner. Classic Bluetooth audio/serial data is outside the browser API.</p></details>
+      </div>
+    </section>
+
+    <div class="lower">
+      <section aria-labelledby="settings-title">
+        <div class="section-heading"><h2 id="settings-title">Page settings</h2><span>Saved on this device</span></div>
+        <div class="settings">
+          <div class="setting"><div><strong>Automatic refresh</strong><p>Update status signals in the background.</p></div><label class="switch"><input id="auto-refresh" type="checkbox" aria-label="Automatic refresh"><span class="slider"></span></label></div>
+          <div class="setting"><div><strong>Refresh interval</strong><p>How often to re-check available signals.</p></div><select id="interval" aria-label="Refresh interval"><option value="15">15 seconds</option><option value="30">30 seconds</option><option value="60">1 minute</option></select></div>
+        </div>
+      </section>
+      <aside class="notes" aria-labelledby="notes-title">
+        <h2 id="notes-title">A note on visibility</h2>
+        <p>“Online” reflects the browser's network hint; it does not guarantee that a website or service is reachable. Bluetooth device selection is initiated by you and depends on browser and operating-system support.</p>
+        <p>To change Wi-Fi, Bluetooth, firewall, or sharing settings, use your computer's system settings. A local HTML page cannot safely control those OS services.</p>
+        <div class="timestamp" id="last-updated">Last updated: waiting</div>
+      </aside>
+    </div>
+    <footer class="foot"><span>STATUS IS APPROXIMATE / BROWSER-REPORTED</span><span>SETTINGS APPLY TO THIS PAGE ONLY</span></footer>
+  </main>
+
+  <script>
+    const byId = (id) => document.getElementById(id);
+    const state = { timer: null, bluetoothDevice: null, bluetoothDisconnectHandler: null, bluetoothScopes: [], bluetoothRows: [], bluetoothSubscriptions: new Map(), bluetoothBusy: false, bluetoothWatching: false, bluetoothAdvertisementHandler: null, audioSinkId: 'default', audioObjectUrl: null, audioContext: null, probing: false };
+    const saved = (() => {
+      try { return JSON.parse(localStorage.getItem('system-fieldnotes-settings') || '{}'); }
+      catch { return {}; }
+    })();
+
+    function setStatus(id, label, detail, level) {
+      const container = byId(id + '-status');
+      container.dataset.state = level || '';
+      container.querySelector('.status-text').textContent = label;
+      byId(id + '-detail').textContent = detail;
+    }
+
+    function setValue(id, value) {
+      byId(id).textContent = value;
+    }
+
+    function formatBytes(bytes) {
+      if (!Number.isFinite(bytes)) return 'Not exposed';
+      const units = ['B', 'KB', 'MB', 'GB'];
+      let value = bytes;
+      let unit = 0;
+      while (value >= 1024 && unit < units.length - 1) {
+        value /= 1024;
+        unit++;
+      }
+      return value.toFixed(unit ? 1 : 0) + ' ' + units[unit];
+    }
+
+    async function readDiagnostics() {
+      const network = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+      setValue('network-type', network && network.type ? network.type : 'Not exposed');
+      setValue('network-online', navigator.onLine ? 'Online hint' : 'Offline hint');
+      setValue('network-speed', network && Number.isFinite(network.downlink) ? network.downlink + ' Mbps' + (network.effectiveType ? ' (' + network.effectiveType + ')' : '') : network && network.effectiveType ? network.effectiveType : 'Not exposed');
+      setValue('network-rtt', network && Number.isFinite(network.rtt) ? network.rtt + ' ms (estimate)' : 'Not exposed');
+      setValue('network-saver', network && typeof network.saveData === 'boolean' ? (network.saveData ? 'On' : 'Off') : 'Not exposed');
+      const platform = navigator.userAgentData && navigator.userAgentData.platform || navigator.platform;
+      setValue('device-platform', platform || 'Not exposed');
+      setValue('device-threads', Number.isFinite(navigator.hardwareConcurrency) ? String(navigator.hardwareConcurrency) : 'Not exposed');
+      setValue('device-memory', Number.isFinite(navigator.deviceMemory) ? 'About ' + navigator.deviceMemory + ' GB' : 'Not exposed');
+      setValue('device-display', screen && screen.width ? screen.width + ' x ' + screen.height + ' px / ' + (window.devicePixelRatio || 1) + 'x' : 'Not exposed');
+      setValue('device-secure', typeof isSecureContext === 'boolean' ? (isSecureContext ? 'Yes' : 'No') : 'Not exposed');
+      if (navigator.storage && navigator.storage.estimate) {
+        try {
+          const estimate = await navigator.storage.estimate();
+          const used = formatBytes(estimate.usage);
+          const quota = formatBytes(estimate.quota);
+          const percent = Number.isFinite(estimate.usage) && Number.isFinite(estimate.quota) && estimate.quota > 0 ? ' (' + Math.round(estimate.usage / estimate.quota * 100) + '%)' : '';
+          setValue('device-storage', used + ' / ' + quota + percent);
+        } catch { setValue('device-storage', 'Not exposed'); }
+      } else {
+        setValue('device-storage', 'Not exposed');
+      }
+    }
+
+    const bluetoothServiceNames = {
+      '1800': 'Generic Access', '1801': 'Generic Attribute', '1805': 'Current Time', '1808': 'Glucose',
+      '1809': 'Health Thermometer', '180a': 'Device Information', '180d': 'Heart Rate', '180f': 'Battery',
+      '1810': 'Blood Pressure', '1811': 'Alert Notification', '1812': 'Human Interface Device',
+      '1814': 'Running Speed and Cadence', '1815': 'Automation IO', '1816': 'Cycling Speed and Cadence',
+      '1818': 'Cycling Power', '1819': 'Location and Navigation', '181a': 'Environmental Sensing',
+      '181b': 'Body Composition', '181c': 'User Data', '181d': 'Weight Scale', '181e': 'Bond Management',
+      '1822': 'Pulse Oximeter', '1823': 'HTTP Proxy', '1826': 'Fitness Machine', '1827': 'Mesh Provisioning',
+      '1828': 'Mesh Proxy', '1829': 'Reconnection Configuration', '183a': 'Insulin Delivery',
+      '183b': 'Binary Sensor', '1843': 'Audio Input Control', '1844': 'Volume Control',
+      '1848': 'Media Control', '1849': 'Generic Media Control', '184a': 'Constant Tone Extension',
+      '184b': 'Telephone Bearer', '184c': 'Generic Telephone Bearer', '184d': 'Microphone Control',
+      '184e': 'Audio Stream Control', '184f': 'Broadcast Audio Scan', '1850': 'Published Audio Capabilities',
+      '1851': 'Basic Audio Announcement', '1852': 'Broadcast Audio Announcement', '1853': 'Common Audio',
+      '1854': 'Hearing Access', '1855': 'Telephony and Media Audio', '1856': 'Public Broadcast Announcement',
+      '1857': 'Electronic Shelf Label', '1858': 'Gaming Audio', '1859': 'Mesh Proxy Solicitation',
+      '185a': 'Industrial Measurement Device', '185b': 'Ranging', '185c': 'Paired Device'
+    };
+    const bluetoothCharacteristicNames = {
+      '2a00': 'Device Name', '2a01': 'Appearance', '2a19': 'Battery Level', '2a23': 'System ID',
+      '2a24': 'Model Number', '2a25': 'Serial Number', '2a26': 'Firmware Revision',
+      '2a27': 'Hardware Revision', '2a28': 'Software Revision', '2a29': 'Manufacturer Name',
+      '2a2a': 'IEEE Regulatory Certification', '2a2b': 'Current Time', '2a37': 'Heart Rate Measurement',
+      '2a38': 'Body Sensor Location', '2a39': 'Heart Rate Control Point', '2a1c': 'Temperature Measurement',
+      '2a35': 'Blood Pressure Measurement', '2a18': 'Glucose Measurement', '2a9c': 'Body Composition Measurement',
+      '2a9d': 'Weight Measurement', '2a5e': 'Pulse Oximeter Spot Check', '2a5f': 'Pulse Oximeter Continuous',
+      '2a5b': 'Cycling Speed and Cadence Feature', '2a5c': 'Sensor Location', '2a5d': 'Cycling Speed and Cadence Measurement',
+      '2a53': 'Running Speed and Cadence Measurement', '2a54': 'Running Speed and Cadence Feature',
+      '2a6e': 'Temperature', '2a6f': 'Humidity', '2a6d': 'Pressure', '2a6c': 'Elevation',
+      '2a76': 'UV Index', '2a77': 'Irradiance', '2a78': 'Wind Chill', '2a79': 'Heat Index',
+      '2a7a': 'Dew Point', '2a7b': 'Magnetic Declination', '2a7c': 'Magnetic Flux Density',
+      '2a7d': 'Barometric Trend', '2a7e': 'Pollen Concentration', '2a7f': 'CO2 Concentration',
+      '2a80': 'VOC Concentration', '2a81': 'Gas Concentration', '2a82': 'Particulate Matter',
+      '2a83': 'Sound Level', '2a84': 'Ranging Data'
+    };
+    const bluetoothDescriptorNames = {
+      '2901': 'User Description', '2902': 'Client Configuration', '2903': 'Server Configuration',
+      '2904': 'Presentation Format', '2905': 'Aggregate Format', '2906': 'Valid Range',
+      '2907': 'External Report Reference', '2908': 'Report Reference', '2909': 'Number of Digitals',
+      '290a': 'Value Trigger Setting', '290b': 'Environmental Sensing Configuration',
+      '290c': 'Environmental Sensing Measurement', '290d': 'Environmental Sensing Trigger Setting',
+      '290e': 'Time Trigger Setting'
+    };
+
+    function bluetoothShortUuid(uuid) {
+      const compact = String(uuid).toLowerCase().replaceAll('-', '');
+      return compact.length === 32 && compact.endsWith('00001000800000805f9b34fb') ? compact.slice(4, 8) : compact;
+    }
+
+    function bluetoothLabel(uuid, names) {
+      const short = bluetoothShortUuid(uuid);
+      return names[short] || 'UUID ' + uuid;
+    }
+
+    function formatBluetoothValue(value) {
+      const bytes = new Uint8Array(value.buffer, value.byteOffset, value.byteLength);
+      const shown = Array.from(bytes.slice(0, 96), (byte) => byte.toString(16).padStart(2, '0')).join(' ');
+      const suffix = bytes.length > 96 ? ' ... (' + bytes.length + ' bytes total)' : '';
+      const text = new TextDecoder().decode(bytes).replace(/\0/g, '').trim();
+      const printable = text && !/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(text) && !text.includes('\ufffd');
+      return 'HEX ' + (shown || '(empty)') + suffix + (printable ? '\nTEXT ' + text : '');
+    }
+
+    function propertyNames(properties) {
+      return ['read', 'write', 'writeWithoutResponse', 'notify', 'indicate', 'broadcast', 'authenticatedSignedWrites', 'reliableWrite', 'writableAuxiliaries']
+        .filter((name) => properties[name]).join(', ') || 'No operations exposed';
+    }
+
+    function renderCapabilityList(id, entries) {
+      const list = byId(id);
+      list.replaceChildren();
+      for (const entry of entries) {
+        const item = document.createElement('li');
+        item.textContent = entry;
+        list.append(item);
+      }
+    }
+
+    function updateBluetoothCapabilities() {
+      const supported = Boolean(navigator.bluetooth && navigator.bluetooth.requestDevice);
+      const connected = Boolean(state.bluetoothDevice && state.bluetoothDevice.gatt && state.bluetoothDevice.gatt.connected);
+      const readable = state.bluetoothRows.filter((item) => item.characteristic.properties.read || item.descriptors.some((descriptor) => typeof descriptor.readValue === 'function')).length;
+      const live = state.bluetoothRows.filter((item) => item.characteristic.properties.notify || item.characteristic.properties.indicate).length;
+      const available = [];
+      const conditional = [];
+      const unavailable = [
+        'Send arbitrary GATT write commands: disabled to avoid changing unknown device state.',
+        'Read every paired or nearby device, Bluetooth MAC addresses, and pairing keys: browser blocks this.',
+        'Control classic Bluetooth audio through GATT: use the separate browser audio-output panel.'
+      ];
+      if (supported && isSecureContext) available.push(connected ? 'GATT connection to ' + (state.bluetoothDevice.name || 'selected device') + ' is active.' : 'Open the browser picker and request selected GATT service scopes.');
+      else unavailable.push('Bluetooth GATT connection: requires Web Bluetooth support and a secure page context.');
+      if (connected) {
+        available.push('Refresh the permitted service, characteristic, and descriptor list.');
+        available.push('Disconnect this page from the selected device.');
+        if (readable) available.push('Read ' + readable + ' characteristic group(s) marked readable.');
+        else conditional.push('No readable characteristics or descriptors have been discovered yet.');
+        if (live) available.push('Subscribe to ' + live + ' characteristic(s) supporting notifications or indications.');
+        else conditional.push('This device has no discovered characteristics advertising notifications or indications.');
+        if (typeof state.bluetoothDevice.watchAdvertisements === 'function') available.push('Start/stop advertisement monitoring for the selected device.');
+        else conditional.push('Selected-device advertisements require browser and device support.');
+      } else {
+        conditional.push('Reading, service discovery, notifications, and device disconnect require an active GATT connection.');
+        conditional.push('Available services, readable fields, and live-update support are unknown until a device is selected.');
+      }
+      if (navigator.mediaDevices && navigator.mediaDevices.selectAudioOutput && typeof byId('bt-audio-player').setSinkId === 'function') {
+        available.push('Select a browser audio output in the audio panel.');
+      } else {
+        conditional.push('Audio output selection depends on browser support; the system default may still work.');
+      }
+      renderCapabilityList('bt-cap-available', available.length ? available : ['No Bluetooth actions are available in this browser context.']);
+      renderCapabilityList('bt-cap-conditional', conditional.length ? conditional : ['Available actions are shown above.']);
+      renderCapabilityList('bt-cap-unavailable', unavailable);
+    }
+
+    function addBluetoothUuidCell(row, label, uuid) {
+      const cell = document.createElement('td');
+      cell.append(document.createTextNode(label));
+      const code = document.createElement('code');
+      code.textContent = uuid;
+      cell.append(code);
+      row.append(cell);
+    }
+
+    async function readBluetooth() {
+      if (!navigator.bluetooth || !navigator.bluetooth.requestDevice) {
+        setStatus('bluetooth', 'Not available here', 'Web Bluetooth is unsupported in this browser or context.', 'warn');
+        setValue('bt-support', 'Web Bluetooth unavailable');
+        byId('bt-connect').disabled = true;
+        updateBluetoothCapabilities();
+        return;
+      }
+      setValue('bt-support', isSecureContext ? 'Web Bluetooth supported · secure context' : 'Secure context required');
+      byId('bt-connect').disabled = false;
+      try {
+        const available = await navigator.bluetooth.getAvailability();
+        let detail = available ? 'Bluetooth adapter reported available.' : 'Bluetooth adapter is off or unavailable.';
+        if (typeof navigator.bluetooth.getDevices === 'function') {
+          try {
+            const devices = await navigator.bluetooth.getDevices();
+            const names = devices.map((device) => (device.name || 'Unnamed device') + (device.gatt && device.gatt.connected ? ' (connected)' : ''));
+            byId('bluetooth-devices').textContent = names.length ? 'Previously authorized to this site: ' + names.join(', ') : 'No previously authorized devices. Use the Explorer to choose one.';
+            if (names.length) detail += ' ' + names.length + ' previously authorized device' + (names.length === 1 ? '' : 's') + '.';
+          } catch { byId('bluetooth-devices').textContent = 'This browser cannot list previously authorized devices.'; }
+        } else {
+          byId('bluetooth-devices').textContent = 'This browser cannot list previously authorized devices.';
+        }
+        if (state.bluetoothDevice && state.bluetoothDevice.gatt && state.bluetoothDevice.gatt.connected) {
+          setStatus('bluetooth', 'Connected', state.bluetoothDevice.name || 'Unnamed device', 'good');
+          detail = (state.bluetoothDevice.name || 'Device') + ' is connected to this page.';
+        } else {
+          setStatus('bluetooth', available ? 'Available' : 'Unavailable', detail, available ? 'good' : 'warn');
+        }
+        updateBluetoothCapabilities();
+      } catch {
+        setStatus('bluetooth', 'Status unknown', 'Browser supports device access, but does not expose adapter availability.', 'warn');
+        updateBluetoothCapabilities();
+      }
+    }
+
+    async function discoverBluetoothServices() {
+      const device = state.bluetoothDevice;
+      if (!device || !device.gatt || !device.gatt.connected) throw new Error('Connect to a device first.');
+      await stopBluetoothNotifications();
+      byId('bt-explorer-status').textContent = 'Discovering services, characteristics, and descriptors...';
+      byId('bt-data-rows').replaceChildren();
+      byId('bt-services-list').replaceChildren();
+      state.bluetoothRows = [];
+      const services = await device.gatt.getPrimaryServices();
+      if (!services.length) {
+        const item = document.createElement('li');
+        item.textContent = 'No permitted primary services were returned.';
+        byId('bt-services-list').append(item);
+      }
+      for (const service of services) {
+        const serviceLabel = bluetoothLabel(service.uuid, bluetoothServiceNames);
+        const serviceItem = document.createElement('li');
+        serviceItem.textContent = serviceLabel + ' · ' + service.uuid;
+        byId('bt-services-list').append(serviceItem);
+        let characteristics = [];
+        try { characteristics = await service.getCharacteristics(); } catch {}
+        for (const characteristic of characteristics) {
+          let descriptors = [];
+          try { descriptors = await characteristic.getDescriptors(); } catch {}
+          const row = document.createElement('tr');
+          addBluetoothUuidCell(row, serviceLabel, service.uuid);
+          const characteristicCell = document.createElement('td');
+          characteristicCell.append(document.createTextNode(bluetoothLabel(characteristic.uuid, bluetoothCharacteristicNames)));
+          const characteristicCode = document.createElement('code');
+          characteristicCode.textContent = characteristic.uuid;
+          characteristicCell.append(characteristicCode);
+          descriptors.forEach((descriptor) => {
+            const descriptorCode = document.createElement('code');
+            descriptorCode.textContent = 'Descriptor: ' + bluetoothLabel(descriptor.uuid, bluetoothDescriptorNames) + ' (' + descriptor.uuid + ')';
+            characteristicCell.append(descriptorCode);
+          });
+          row.append(characteristicCell);
+          const propertiesCell = document.createElement('td');
+          propertiesCell.textContent = propertyNames(characteristic.properties);
+          row.append(propertiesCell);
+          const valueCell = document.createElement('td');
+          valueCell.className = 'bt-value';
+          valueCell.textContent = characteristic.properties.read ? 'Readable; loading...' : 'Not readable';
+          row.append(valueCell);
+          const liveCell = document.createElement('td');
+          if (characteristic.properties.notify || characteristic.properties.indicate) {
+            const liveButton = document.createElement('button');
+            liveButton.type = 'button';
+            liveButton.className = 'bt-inline';
+            liveButton.textContent = 'Subscribe';
+            liveButton.addEventListener('click', () => toggleBluetoothNotifications(characteristic, valueCell, liveButton));
+            liveCell.append(liveButton);
+          } else {
+            liveCell.textContent = 'Not supported';
+          }
+          row.append(liveCell);
+          byId('bt-data-rows').append(row);
+          state.bluetoothRows.push({ characteristic, descriptors, valueCell });
+        }
+      }
+      if (!state.bluetoothRows.length) {
+        const row = document.createElement('tr');
+        const cell = document.createElement('td');
+        cell.colSpan = 5;
+        cell.className = 'bt-empty';
+        cell.textContent = 'Services were found, but no accessible characteristics were returned.';
+        row.append(cell);
+        byId('bt-data-rows').append(row);
+      }
+      byId('bt-read-values').disabled = !state.bluetoothRows.some((item) => item.characteristic.properties.read || item.descriptors.some((descriptor) => typeof descriptor.readValue === 'function'));
+      setValue('bluetooth-services', services.map((service) => bluetoothLabel(service.uuid, bluetoothServiceNames)).join(', ') || 'No permitted services found');
+      setValue('bt-explorer-status', 'Found ' + services.length + ' permitted service' + (services.length === 1 ? '' : 's') + ' and ' + state.bluetoothRows.length + ' characteristic' + (state.bluetoothRows.length === 1 ? '' : 's') + '. Reading accessible values...');
+      updateBluetoothCapabilities();
+      await readBluetoothValues();
+    }
+
+    async function readBluetoothValues() {
+      const readableRows = state.bluetoothRows.filter((item) => item.characteristic.properties.read || item.descriptors.length);
+      let completed = 0;
+      for (const item of readableRows) {
+        const values = [];
+        if (item.characteristic.properties.read) {
+          try {
+            const value = await item.characteristic.readValue();
+            values.push('Characteristic: ' + formatBluetoothValue(value));
+            if (bluetoothShortUuid(item.characteristic.uuid) === '2a19' && value.byteLength) {
+              setValue('bluetooth-battery', value.getUint8(0) + '%');
+            }
+          } catch (error) { values.push('Characteristic read failed: ' + error.message); }
+        }
+        for (const descriptor of item.descriptors) {
+          if (typeof descriptor.readValue !== 'function') continue;
+          try {
+            const value = await descriptor.readValue();
+            values.push('Descriptor ' + bluetoothLabel(descriptor.uuid, bluetoothDescriptorNames) + ': ' + formatBluetoothValue(value));
+          } catch (error) { values.push('Descriptor read failed: ' + error.message); }
+        }
+        item.valueCell.textContent = values.join('\n\n') || 'No readable values';
+        if (values.some((value) => !value.includes('read failed'))) completed++;
+      }
+      byId('bt-explorer-status').textContent = 'Read data from ' + completed + ' of ' + readableRows.length + ' readable characteristic groups. Values remain in this page only.';
+    }
+
+    async function toggleBluetoothNotifications(characteristic, valueCell, button) {
+      const subscription = state.bluetoothSubscriptions.get(characteristic);
+      if (subscription) {
+        try { await characteristic.stopNotifications(); } catch {}
+        characteristic.removeEventListener('characteristicvaluechanged', subscription.handler);
+        state.bluetoothSubscriptions.delete(characteristic);
+        button.textContent = 'Subscribe';
+        updateBluetoothCapabilities();
+        return;
+      }
+      const handler = (event) => {
+        const value = event.target.value;
+        valueCell.textContent = 'LIVE ' + new Date().toLocaleTimeString() + '\n' + formatBluetoothValue(value);
+        if (bluetoothShortUuid(characteristic.uuid) === '2a19' && value.byteLength) setValue('bluetooth-battery', value.getUint8(0) + '%');
+      };
+      try {
+        characteristic.addEventListener('characteristicvaluechanged', handler);
+        await characteristic.startNotifications();
+        state.bluetoothSubscriptions.set(characteristic, { handler, button });
+        button.textContent = 'Stop updates';
+        updateBluetoothCapabilities();
+      } catch (error) {
+        characteristic.removeEventListener('characteristicvaluechanged', handler);
+        valueCell.textContent = 'Live updates failed: ' + (error.message || error.name);
+      }
+    }
+
+    function clearBluetoothSubscriptions() {
+      for (const [characteristic, subscription] of state.bluetoothSubscriptions) {
+        characteristic.removeEventListener('characteristicvaluechanged', subscription.handler);
+        subscription.button.textContent = 'Subscribe';
+      }
+      state.bluetoothSubscriptions.clear();
+    }
+
+    async function stopBluetoothNotifications() {
+      const active = [...state.bluetoothSubscriptions.entries()];
+      clearBluetoothSubscriptions();
+      await Promise.all(active.map(async ([characteristic]) => {
+        try { await characteristic.stopNotifications(); } catch {}
+      }));
+    }
+
+    async function readPermission(name, id, noun) {
+      if (!navigator.permissions || !navigator.permissions.query) {
+        setStatus(id, 'Not exposed', 'Permission state is not exposed by this browser.', 'warn');
+        return;
+      }
+      try {
+        const permission = await navigator.permissions.query({ name });
+        const value = permission.state;
+        setStatus(id, value[0].toUpperCase() + value.slice(1), noun + ' permission is ' + value + '.', value === 'granted' ? 'good' : value === 'denied' ? 'bad' : '');
+      } catch {
+        setStatus(id, 'Not exposed', 'Permission state is not exposed by this browser.', 'warn');
+      }
+    }
+
+    async function refreshStatus() {
+      byId('refresh').disabled = true;
+      setStatus('internet', navigator.onLine ? 'Browser reports online' : 'Browser reports offline', navigator.connection && navigator.connection.effectiveType ? 'Connection hint: ' + navigator.connection.effectiveType + '.' : 'The browser cannot verify access to a specific service.', navigator.onLine ? 'good' : 'bad');
+      const rtcSupported = typeof RTCPeerConnection !== 'undefined';
+      setStatus('p2p', rtcSupported ? 'WebRTC supported' : 'Not available here', rtcSupported ? 'This page can run a local peer handshake; it cannot list connections owned by other apps.' : 'WebRTC is not supported in this browser.', rtcSupported ? 'good' : 'warn');
+      byId('p2p-action').disabled = !rtcSupported || state.probing;
+      await Promise.all([
+        readBluetooth(),
+        readPermission('geolocation', 'location', 'Location'),
+        readPermission('notifications', 'notifications', 'Notification'),
+        readDiagnostics()
+      ]);
+      const now = new Date();
+      const time = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      byId('checked-at').textContent = 'Checked ' + time;
+      byId('last-updated').textContent = 'Last updated: ' + now.toLocaleString();
+      byId('refresh').disabled = false;
+    }
+
+    async function testInternet() {
+      const buttons = [byId('internet-action'), byId('internet-action-detail')];
+      buttons.forEach((button) => { button.disabled = true; });
+      const result = byId('internet-probe');
+      const endpoints = [
+        { id: 'probe-google', url: 'https://www.gstatic.com/generate_204' },
+        { id: 'probe-cloudflare', url: 'https://www.cloudflare.com/cdn-cgi/trace' },
+        { id: 'probe-mozilla', url: 'https://www.mozilla.org/media/img/favicons/favicon-196x196.png' },
+        { id: 'probe-wikipedia', url: 'https://en.wikipedia.org/favicon.ico' }
+      ];
+      const rounds = Number(byId('internet-rounds').value) === 3 ? 3 : 1;
+      const samples = new Map(endpoints.map((endpoint) => [endpoint.id, []]));
+      let failedRequests = 0;
+      endpoints.forEach((endpoint) => setValue(endpoint.id, 'Testing...'));
+      try {
+        for (let round = 1; round <= rounds; round++) {
+          result.textContent = 'Round ' + round + ' of ' + rounds + ': checking four public endpoints...';
+          const results = await Promise.all(endpoints.map(async (endpoint) => {
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 6000);
+            const started = performance.now();
+            try {
+              await fetch(endpoint.url, { mode: 'no-cors', cache: 'no-store', signal: controller.signal });
+              return { id: endpoint.id, elapsed: Math.round(performance.now() - started), ok: true };
+            } catch (error) {
+              return { id: endpoint.id, elapsed: Math.round(performance.now() - started), ok: false };
+            } finally {
+              clearTimeout(timeout);
+            }
+          }));
+          for (const probe of results) {
+            if (probe.ok) samples.get(probe.id).push(probe.elapsed);
+            else failedRequests++;
+          }
+        }
+        const reachable = endpoints.filter((endpoint) => samples.get(endpoint.id).length);
+        for (const endpoint of endpoints) {
+          const timings = samples.get(endpoint.id);
+          if (!timings.length) {
+            setValue(endpoint.id, 'No response');
+            continue;
+          }
+          const average = timings.reduce((sum, value) => sum + value, 0) / timings.length;
+          setValue(endpoint.id, average.toFixed(0) + ' ms avg · ' + Math.min(...timings) + '-' + Math.max(...timings) + ' ms · ' + timings.length + '/' + rounds + ' ok');
+        }
+        const allTimings = reachable.flatMap((endpoint) => samples.get(endpoint.id));
+        const average = allTimings.length ? allTimings.reduce((sum, value) => sum + value, 0) / allTimings.length : 0;
+        const minimum = allTimings.length ? Math.min(...allTimings) : 0;
+        const maximum = allTimings.length ? Math.max(...allTimings) : 0;
+        if (reachable.length) {
+          result.textContent = reachable.length + '/4 endpoints had a completed request. ' + allTimings.length + ' successful samples averaged ' + average.toFixed(0) + ' ms (' + minimum + '-' + maximum + ' ms); ' + failedRequests + ' request(s) failed.';
+          setStatus('internet', reachable.length + '/4 endpoints responded', 'The browser completed cross-origin requests, but hides HTTP status and response contents. These timings are not a bandwidth speed test.', reachable.length === 4 && !failedRequests ? 'good' : 'warn');
+        } else {
+          result.textContent = 'No endpoint requests completed. The network may be offline, the endpoints blocked, or browser policy may have denied requests.';
+          setStatus('internet', 'Endpoint tests failed', 'All test requests failed or timed out.', 'bad');
+        }
+        result.textContent += ' Tested at ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) + '.';
+      } finally {
+        buttons.forEach((button) => { button.disabled = false; });
+      }
+    }
+
+    function waitForIceGathering(peer) {
+      if (peer.iceGatheringState === 'complete') return Promise.resolve();
+      return new Promise((resolve) => {
+        const timeout = setTimeout(done, 2500);
+        function done() {
+          clearTimeout(timeout);
+          peer.removeEventListener('icegatheringstatechange', onChange);
+          resolve();
+        }
+        function onChange() {
+          if (peer.iceGatheringState === 'complete') done();
+        }
+        peer.addEventListener('icegatheringstatechange', onChange);
+      });
+    }
+
+    async function testLocalPeerConnection() {
+      const button = byId('p2p-action');
+      const result = byId('p2p-result');
+      const started = performance.now();
+      let left;
+      let right;
+      let leftCandidates = 0;
+      let rightCandidates = 0;
+      let bytesTransferred = 0;
+      const roundTrips = [];
+      state.probing = true;
+      button.disabled = true;
+      result.textContent = 'Negotiating two temporary peers in this page...';
+      setValue('p2p-peers', 'Creating two local peers...');
+      setValue('p2p-ice-servers', 'None (host candidates only)');
+      setValue('p2p-candidates', 'Gathering...');
+      setValue('p2p-channel-state', 'Connecting');
+      setValue('p2p-rtt', 'Sampling...');
+      setValue('p2p-bytes', '0 bytes');
+      try {
+        left = new RTCPeerConnection({ iceServers: [] });
+        right = new RTCPeerConnection({ iceServers: [] });
+        left.onicecandidate = (event) => { if (event.candidate) leftCandidates++; };
+        right.onicecandidate = (event) => { if (event.candidate) rightCandidates++; };
+        setValue('p2p-peers', '2 temporary peers · same page');
+        right.ondatachannel = (event) => {
+          event.channel.onmessage = (message) => {
+            bytesTransferred += message.data.length;
+            event.channel.send(message.data);
+            bytesTransferred += message.data.length;
+          };
+        };
+        const channel = left.createDataChannel('local-diagnostics');
+        const handshake = new Promise((resolve) => {
+          const timeout = setTimeout(() => resolve(false), 12000);
+          let sequence = 0;
+          let sentAt = 0;
+          const sendNext = () => {
+            if (sequence >= 5) {
+              clearTimeout(timeout);
+              resolve(true);
+              return;
+            }
+            sequence++;
+            sentAt = performance.now();
+            channel.send('probe-' + sequence);
+          };
+          channel.onopen = () => {
+            setValue('p2p-channel-state', channel.readyState);
+            sendNext();
+          };
+          channel.onmessage = (event) => {
+            bytesTransferred += event.data.length;
+            roundTrips.push(Math.round(performance.now() - sentAt));
+            setValue('p2p-rtt', roundTrips.join(', ') + ' ms');
+            setValue('p2p-bytes', bytesTransferred + ' bytes');
+            sendNext();
+          };
+          channel.onclose = () => setValue('p2p-channel-state', 'closed');
+        });
+        await left.setLocalDescription(await left.createOffer());
+        await waitForIceGathering(left);
+        await right.setRemoteDescription(left.localDescription);
+        await right.setLocalDescription(await right.createAnswer());
+        await waitForIceGathering(right);
+        await left.setRemoteDescription(right.localDescription);
+        const response = await handshake;
+        if (!response) throw new Error('Local data channel timed out before five echo samples completed.');
+        const elapsed = Math.round(performance.now() - started);
+        const average = roundTrips.reduce((sum, value) => sum + value, 0) / roundTrips.length;
+        setValue('p2p-candidates', 'Local peer A: ' + leftCandidates + ' · peer B: ' + rightCandidates + ' (addresses hidden)');
+        setValue('p2p-channel-state', 'Open; closed after test');
+        setValue('p2p-rtt', roundTrips.length + ' samples · ' + average.toFixed(1) + ' ms avg · ' + Math.min(...roundTrips) + '-' + Math.max(...roundTrips) + ' ms');
+        setValue('p2p-bytes', bytesTransferred + ' bytes echoed');
+        result.textContent = 'Five local data-channel echoes completed in ' + elapsed + ' ms. No external peer or ICE server was contacted.';
+        setStatus('p2p', 'Local test passed', 'Five in-page data-channel round trips completed in ' + elapsed + ' ms.', 'good');
+      } catch (error) {
+        result.textContent = error.message || 'The browser could not complete its local peer handshake.';
+        setValue('p2p-channel-state', 'Failed');
+        setValue('p2p-candidates', 'Peer A: ' + leftCandidates + ' · peer B: ' + rightCandidates);
+        setValue('p2p-bytes', bytesTransferred + ' bytes exchanged');
+        setStatus('p2p', 'Local test failed', 'WebRTC is supported, but this browser or device blocked the local handshake.', 'warn');
+      } finally {
+        if (left) left.close();
+        if (right) right.close();
+        state.probing = false;
+        button.disabled = false;
+      }
+    }
+
+    function saveSettings() {
+      const settings = { autoRefresh: byId('auto-refresh').checked, interval: Number(byId('interval').value) };
+      try { localStorage.setItem('system-fieldnotes-settings', JSON.stringify(settings)); } catch {}
+      if (state.timer) clearInterval(state.timer);
+      state.timer = settings.autoRefresh ? setInterval(refreshStatus, settings.interval * 1000) : null;
+    }
+
+    byId('refresh').addEventListener('click', refreshStatus);
+    byId('internet-action').addEventListener('click', testInternet);
+    byId('internet-action-detail').addEventListener('click', testInternet);
+    byId('p2p-action').addEventListener('click', testLocalPeerConnection);
+    function setBluetoothControls(connected) {
+      byId('bt-discover').disabled = !connected;
+      byId('bt-read-values').disabled = !connected || !state.bluetoothRows.some((item) => item.characteristic.properties.read || item.descriptors.some((descriptor) => typeof descriptor.readValue === 'function'));
+      byId('bt-watch').disabled = !connected || !state.bluetoothDevice || typeof state.bluetoothDevice.watchAdvertisements !== 'function';
+      byId('bt-disconnect').disabled = !connected;
+      byId('bt-connect').disabled = !navigator.bluetooth || state.bluetoothBusy;
+      byId('bt-watch').textContent = state.bluetoothWatching ? 'Stop advertisements' : 'Watch advertisements';
+      updateBluetoothCapabilities();
+    }
+
+    async function connectBluetooth() {
+      if (!navigator.bluetooth || !navigator.bluetooth.requestDevice || state.bluetoothBusy) return;
+      const standardScopes = [...document.querySelectorAll('input[name="bt-service"]:checked')].map((input) => input.value);
+      const customScopes = byId('bt-custom-services').value.split(/[\s,]+/).filter(Boolean);
+      const validUuid = /^(?:[0-9a-f]{4}|[0-9a-f]{8}|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i;
+      const invalid = customScopes.find((uuid) => !validUuid.test(uuid));
+      if (invalid) {
+        byId('bt-explorer-status').textContent = 'Invalid service UUID: ' + invalid + '. Use 4, 8, or 128 hexadecimal digits.';
+        return;
+      }
+      const scopes = [...new Set([...standardScopes, ...customScopes.map((uuid) => uuid.toLowerCase())])];
+      if (!scopes.length) {
+        byId('bt-explorer-status').textContent = 'Select at least one service scope before connecting.';
+        return;
+      }
+      state.bluetoothBusy = true;
+      byId('bt-connect').disabled = true;
+      byId('bt-explorer-status').textContent = 'Opening the browser device chooser...';
+      try {
+        const device = await navigator.bluetooth.requestDevice({ acceptAllDevices: true, optionalServices: scopes });
+        if (!device.gatt) throw new Error('This device does not expose a GATT server.');
+        const previousDevice = state.bluetoothDevice;
+        if (previousDevice && previousDevice !== device) {
+          await stopBluetoothAdvertisements();
+          await stopBluetoothNotifications();
+        }
+        if (previousDevice && state.bluetoothDisconnectHandler) previousDevice.removeEventListener('gattserverdisconnected', state.bluetoothDisconnectHandler);
+        state.bluetoothDevice = device;
+        if (previousDevice && previousDevice !== device && previousDevice.gatt && previousDevice.gatt.connected) previousDevice.gatt.disconnect();
+        state.bluetoothScopes = scopes;
+        state.bluetoothRows = [];
+        setValue('bt-device-name', device.name || 'Unnamed device');
+        setValue('bt-device-id', device.id || 'Not exposed by this browser');
+        setValue('bt-gatt-state', 'Connecting...');
+        setValue('bt-granted-scopes', scopes.join(', '));
+        setValue('bluetooth-device-name', device.name || 'Unnamed device');
+        setValue('bluetooth-link', 'Connecting...');
+        setValue('bluetooth-battery', 'Not read yet');
+        state.bluetoothDisconnectHandler = () => {
+          if (state.bluetoothDevice !== device) return;
+          if (state.bluetoothAdvertisementHandler) device.removeEventListener('advertisementreceived', state.bluetoothAdvertisementHandler);
+          state.bluetoothWatching = false;
+          state.bluetoothAdvertisementHandler = null;
+          clearBluetoothSubscriptions();
+          setValue('bt-gatt-state', 'Disconnected');
+          setValue('bluetooth-link', 'Disconnected');
+          setBluetoothControls(false);
+          setStatus('bluetooth', 'Disconnected', (device.name || 'Device') + ' disconnected from this page.', 'warn');
+          byId('bt-explorer-status').textContent = 'The GATT connection ended. Previously returned values remain visible until you select another device.';
+          updateBluetoothCapabilities();
+        };
+        device.addEventListener('gattserverdisconnected', state.bluetoothDisconnectHandler);
+        byId('bt-explorer-status').textContent = 'Connecting to ' + (device.name || 'selected device') + '...';
+        await device.gatt.connect();
+        setValue('bt-gatt-state', 'Connected');
+        setValue('bluetooth-link', 'Connected');
+        setBluetoothControls(true);
+        setStatus('bluetooth', 'Connected', (device.name || 'Selected device') + ' is connected through GATT.', 'good');
+        await discoverBluetoothServices();
+      } catch (error) {
+        if (error.name === 'NotFoundError' || error.name === 'AbortError') {
+          byId('bt-explorer-status').textContent = 'Device chooser closed; no connection was made.';
+        } else {
+          byId('bt-explorer-status').textContent = 'Bluetooth connection or inspection failed: ' + (error.message || error.name);
+          setStatus('bluetooth', 'Connection failed', error.message || 'The GATT connection could not be completed.', 'warn');
+          setValue('bt-gatt-state', 'Connection failed');
+        }
+      } finally {
+        state.bluetoothBusy = false;
+        setBluetoothControls(Boolean(state.bluetoothDevice && state.bluetoothDevice.gatt && state.bluetoothDevice.gatt.connected));
+      }
+    }
+
+    async function disconnectBluetooth() {
+      if (state.bluetoothDevice && state.bluetoothDevice.gatt && state.bluetoothDevice.gatt.connected) {
+        await stopBluetoothAdvertisements();
+        await stopBluetoothNotifications();
+        state.bluetoothDevice.gatt.disconnect();
+        setValue('bt-gatt-state', 'Disconnected');
+        setValue('bluetooth-link', 'Disconnected');
+        setBluetoothControls(false);
+        setStatus('bluetooth', 'Disconnected', 'The page ended its GATT connection.', 'warn');
+        byId('bt-explorer-status').textContent = 'Disconnected. Values already read remain visible until another device is selected.';
+      }
+    }
+
+    function formatAdvertisementMap(map) {
+      if (!map || !map.size) return 'None';
+      return [...map.entries()].map(([key, value]) => key + ': ' + formatBluetoothValue(value)).join('\n');
+    }
+
+    async function toggleBluetoothAdvertisements() {
+      const device = state.bluetoothDevice;
+      if (!device || !device.gatt || !device.gatt.connected) return;
+      if (state.bluetoothWatching) {
+        await stopBluetoothAdvertisements();
+        return;
+      }
+      if (typeof device.watchAdvertisements !== 'function') {
+        byId('bt-explorer-status').textContent = 'This browser does not support selected-device advertisement monitoring.';
+        return;
+      }
+      const handler = (event) => {
+        const fields = ['Advertisement received: ' + new Date().toLocaleTimeString()];
+        if (event.name) fields.push('Name: ' + event.name);
+        if (Number.isFinite(event.rssi)) fields.push('RSSI: ' + event.rssi + ' dBm');
+        if (Number.isFinite(event.txPower)) fields.push('Transmit power: ' + event.txPower + ' dBm');
+        if (Number.isFinite(event.appearance)) fields.push('Appearance: ' + event.appearance);
+        if (event.uuids && event.uuids.length) fields.push('Advertised services: ' + event.uuids.join(', '));
+        if (event.manufacturerData && event.manufacturerData.size) fields.push('Manufacturer data:\n' + formatAdvertisementMap(event.manufacturerData));
+        if (event.serviceData && event.serviceData.size) fields.push('Service data:\n' + formatAdvertisementMap(event.serviceData));
+        byId('bt-advertisement').textContent = fields.join('\n');
+      };
+      state.bluetoothAdvertisementHandler = handler;
+      device.addEventListener('advertisementreceived', handler);
+      try {
+        await device.watchAdvertisements();
+        state.bluetoothWatching = true;
+        byId('bt-watch').textContent = 'Stop advertisements';
+        byId('bt-advertisement').textContent = 'Listening for broadcasts from ' + (device.name || 'selected device') + '...';
+        byId('bt-explorer-status').textContent = 'Advertisement monitoring started for the selected device only.';
+      } catch (error) {
+        device.removeEventListener('advertisementreceived', handler);
+        state.bluetoothAdvertisementHandler = null;
+        byId('bt-explorer-status').textContent = 'Could not start advertisement monitoring: ' + (error.message || error.name);
+      }
+    }
+
+    async function stopBluetoothAdvertisements() {
+      const device = state.bluetoothDevice;
+      if (!device) return;
+      if (state.bluetoothAdvertisementHandler) device.removeEventListener('advertisementreceived', state.bluetoothAdvertisementHandler);
+      if (state.bluetoothWatching && typeof device.unwatchAdvertisements === 'function') {
+        try { await device.unwatchAdvertisements(); } catch {}
+      }
+      state.bluetoothAdvertisementHandler = null;
+      state.bluetoothWatching = false;
+      byId('bt-watch').textContent = 'Watch advertisements';
+      byId('bt-advertisement').textContent = 'Not listening.';
+    }
+
+    function setAudioStatus(message) {
+      byId('bt-audio-status').textContent = message;
+    }
+
+    function audioSinkSupported() {
+      return typeof byId('bt-audio-player').setSinkId === 'function';
+    }
+
+    async function applyAudioSink(element) {
+      if (!audioSinkSupported()) {
+        if (state.audioSinkId !== 'default') throw new Error('This browser cannot route audio to a chosen output.');
+        return;
+      }
+      await element.setSinkId(state.audioSinkId === 'default' ? '' : state.audioSinkId);
+    }
+
+    async function refreshAudioOutputs() {
+      const select = byId('bt-audio-output');
+      const current = state.audioSinkId;
+      select.replaceChildren(new Option('System default output', 'default'));
+      const mediaDevices = navigator.mediaDevices;
+      if (!mediaDevices || !mediaDevices.enumerateDevices) {
+        setAudioStatus('This browser does not expose an audio output list; playback can still use the system default.');
+        byId('bt-audio-choose').disabled = true;
+        return;
+      }
+      try {
+        const devices = await mediaDevices.enumerateDevices();
+        const outputs = devices.filter((device) => device.kind === 'audiooutput');
+        outputs.forEach((device, index) => {
+          if (!device.deviceId || device.deviceId === 'default') return;
+          const option = new Option(device.label || 'Audio output ' + (index + 1), device.deviceId);
+          select.append(option);
+        });
+        const exists = [...select.options].some((option) => option.value === current);
+        state.audioSinkId = exists ? current : 'default';
+        select.value = state.audioSinkId;
+        byId('bt-audio-choose').disabled = !mediaDevices.selectAudioOutput || !audioSinkSupported();
+        const labelsAvailable = outputs.some((device) => device.label);
+        setAudioStatus(outputs.length ? outputs.length + ' output option(s) found.' + (labelsAvailable ? '' : ' Device names may appear after you grant output permission.') : 'No named outputs are exposed; the system default remains available.');
+      } catch (error) {
+        setAudioStatus('Could not list outputs: ' + (error.message || error.name));
+      }
+    }
+
+    async function chooseAudioOutput() {
+      const mediaDevices = navigator.mediaDevices;
+      if (!mediaDevices || !mediaDevices.selectAudioOutput || !audioSinkSupported()) {
+        setAudioStatus('Output selection is not supported in this browser. Use the system default output.');
+        return;
+      }
+      try {
+        const device = await mediaDevices.selectAudioOutput();
+        state.audioSinkId = device.deviceId;
+        await applyAudioSink(byId('bt-audio-player'));
+        await applyAudioSink(byId('bt-audio-test-player'));
+        await refreshAudioOutputs();
+        byId('bt-audio-output').value = state.audioSinkId;
+        setAudioStatus('Audio will use: ' + (device.label || 'the selected output') + '.');
+      } catch (error) {
+        setAudioStatus(error.name === 'NotAllowedError' ? 'Audio output permission was not granted.' : 'Output selection failed: ' + (error.message || error.name));
+      }
+    }
+
+    async function setSelectedAudioOutput() {
+      state.audioSinkId = byId('bt-audio-output').value;
+      try {
+        await applyAudioSink(byId('bt-audio-player'));
+        await applyAudioSink(byId('bt-audio-test-player'));
+        const option = byId('bt-audio-output').selectedOptions[0];
+        setAudioStatus('Audio will use: ' + (option ? option.textContent : 'system default output') + '.');
+      } catch (error) {
+        setAudioStatus('Could not route audio to that output: ' + (error.message || error.name));
+      }
+    }
+
+    function formatAudioTime(seconds) {
+      if (!Number.isFinite(seconds)) return '0:00';
+      const whole = Math.floor(seconds);
+      return Math.floor(whole / 60) + ':' + String(whole % 60).padStart(2, '0');
+    }
+
+    function updateAudioProgress() {
+      const player = byId('bt-audio-player');
+      const duration = Number.isFinite(player.duration) ? player.duration : 0;
+      byId('bt-audio-time').textContent = formatAudioTime(player.currentTime) + ' / ' + formatAudioTime(duration);
+      byId('bt-audio-seek').value = duration ? String(Math.round(player.currentTime / duration * 1000)) : '0';
+    }
+
+    async function playLocalAudio() {
+      const player = byId('bt-audio-player');
+      if (!player.src) return;
+      if (!player.paused) {
+        player.pause();
+        byId('bt-audio-play').textContent = 'Play';
+        return;
+      }
+      try {
+        await applyAudioSink(player);
+        player.volume = Math.min(0.2, Number(byId('bt-audio-volume').value));
+        await player.play();
+        byId('bt-audio-play').textContent = 'Pause';
+        setAudioStatus('Playing the selected local file through the chosen output.');
+      } catch (error) {
+        setAudioStatus('Playback failed: ' + (error.message || error.name));
+      }
+    }
+
+    async function playTestBeep() {
+      const button = byId('bt-audio-beep');
+      const player = byId('bt-audio-test-player');
+      button.disabled = true;
+      try {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContextClass) throw new Error('Web Audio is not supported in this browser.');
+        if (!state.audioContext) state.audioContext = new AudioContextClass();
+        await state.audioContext.resume();
+        const destination = state.audioContext.createMediaStreamDestination();
+        const oscillator = state.audioContext.createOscillator();
+        const gain = state.audioContext.createGain();
+        const now = state.audioContext.currentTime;
+        oscillator.type = 'sine';
+        oscillator.frequency.setValueAtTime(560, now);
+        gain.gain.setValueAtTime(0.0001, now);
+        gain.gain.linearRampToValueAtTime(0.45, now + 0.012);
+        gain.gain.linearRampToValueAtTime(0.0001, now + 0.13);
+        oscillator.connect(gain);
+        gain.connect(destination);
+        player.srcObject = destination.stream;
+        player.volume = Math.min(0.2, Number(byId('bt-audio-volume').value));
+        await applyAudioSink(player);
+        await player.play();
+        oscillator.onended = () => {
+          player.pause();
+          player.srcObject = null;
+          destination.stream.getTracks().forEach((track) => track.stop());
+        };
+        oscillator.start(now);
+        oscillator.stop(now + 0.15);
+        setAudioStatus('Playing a 560 Hz, 150 ms test beep at no more than 20% player volume.');
+      } catch (error) {
+        setAudioStatus('Test beep failed: ' + (error.message || error.name));
+      } finally {
+        button.disabled = false;
+      }
+    }
+
+    byId('bt-audio-choose').addEventListener('click', chooseAudioOutput);
+    byId('bt-audio-refresh').addEventListener('click', refreshAudioOutputs);
+    byId('bt-audio-output').addEventListener('change', setSelectedAudioOutput);
+    byId('bt-audio-volume').addEventListener('input', () => {
+      const volume = Math.min(0.2, Number(byId('bt-audio-volume').value));
+      byId('bt-audio-player').volume = volume;
+      byId('bt-audio-test-player').volume = volume;
+    });
+    byId('bt-audio-beep').addEventListener('click', playTestBeep);
+    byId('bt-audio-file').addEventListener('change', () => {
+      const file = byId('bt-audio-file').files[0];
+      if (!file) return;
+      const player = byId('bt-audio-player');
+      player.pause();
+      if (state.audioObjectUrl) URL.revokeObjectURL(state.audioObjectUrl);
+      state.audioObjectUrl = URL.createObjectURL(file);
+      player.src = state.audioObjectUrl;
+      player.volume = Math.min(0.2, Number(byId('bt-audio-volume').value));
+      player.load();
+      byId('bt-audio-play').disabled = false;
+      byId('bt-audio-stop').disabled = false;
+      byId('bt-audio-seek').disabled = false;
+      byId('bt-audio-play').textContent = 'Play';
+      setAudioStatus('Loaded locally: ' + file.name + '. The file has not been uploaded.');
+    });
+    byId('bt-audio-play').addEventListener('click', playLocalAudio);
+    byId('bt-audio-stop').addEventListener('click', () => {
+      const player = byId('bt-audio-player');
+      player.pause();
+      player.currentTime = 0;
+      byId('bt-audio-play').textContent = 'Play';
+      updateAudioProgress();
+    });
+    byId('bt-audio-seek').addEventListener('input', () => {
+      const player = byId('bt-audio-player');
+      if (Number.isFinite(player.duration)) player.currentTime = Number(byId('bt-audio-seek').value) / 1000 * player.duration;
+    });
+    byId('bt-audio-player').addEventListener('timeupdate', updateAudioProgress);
+    byId('bt-audio-player').addEventListener('loadedmetadata', updateAudioProgress);
+    byId('bt-audio-player').addEventListener('ended', () => { byId('bt-audio-play').textContent = 'Play'; });
+    if (navigator.mediaDevices && navigator.mediaDevices.addEventListener) {
+      navigator.mediaDevices.addEventListener('devicechange', refreshAudioOutputs);
+    }
+    refreshAudioOutputs();
+
+    function openBluetoothExplorer() {
+      byId('bluetooth-explorer').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    byId('bluetooth-action').addEventListener('click', openBluetoothExplorer);
+    byId('bluetooth-action-detail').addEventListener('click', openBluetoothExplorer);
+    byId('bt-connect').addEventListener('click', connectBluetooth);
+    byId('bt-discover').addEventListener('click', () => discoverBluetoothServices().catch((error) => {
+      byId('bt-explorer-status').textContent = 'Service discovery failed: ' + (error.message || error.name);
+    }));
+    byId('bt-read-values').addEventListener('click', () => readBluetoothValues().catch((error) => {
+      byId('bt-explorer-status').textContent = 'Reading values failed: ' + (error.message || error.name);
+    }));
+    byId('bt-watch').addEventListener('click', toggleBluetoothAdvertisements);
+    byId('bt-disconnect').addEventListener('click', disconnectBluetooth);
+    function requestLocation() {
+      if (!navigator.geolocation) {
+        setStatus('location', 'Not available here', 'Geolocation is unsupported in this browser.', 'warn');
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const coords = position.coords;
+          setValue('location-latitude', coords.latitude.toFixed(6) + '°');
+          setValue('location-longitude', coords.longitude.toFixed(6) + '°');
+          setValue('location-accuracy', '±' + Math.round(coords.accuracy) + ' m');
+          setValue('location-altitude', coords.altitude === null ? 'Not provided' : coords.altitude.toFixed(1) + ' m' + (coords.altitudeAccuracy ? ' ±' + Math.round(coords.altitudeAccuracy) + ' m' : ''));
+          const speed = coords.speed === null ? 'Not provided' : (coords.speed * 3.6).toFixed(1) + ' km/h';
+          const heading = coords.heading === null ? 'Not provided' : coords.heading.toFixed(0) + '°';
+          setValue('location-motion', speed + ' / ' + heading);
+          setValue('location-timestamp', new Date(position.timestamp).toLocaleString());
+          setStatus('location', 'Reading received', 'Accuracy ±' + Math.round(coords.accuracy) + ' m. Coordinates are displayed only on this page and are not saved.', 'good');
+        },
+        (error) => {
+          setStatus('location', error.code === 1 ? 'Access denied' : 'Unavailable', error.message || 'The location request did not complete.', error.code === 1 ? 'bad' : 'warn');
+        },
+        { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 }
+      );
+    }
+    byId('location-action').addEventListener('click', requestLocation);
+    byId('location-action-detail').addEventListener('click', requestLocation);
+    byId('notifications-action').addEventListener('click', async () => {
+      if (!('Notification' in window)) {
+        setStatus('notifications', 'Not available here', 'Notifications are unsupported in this browser.', 'warn');
+        return;
+      }
+      try {
+        const permission = await Notification.requestPermission();
+        setValue('notification-permission', permission);
+        setStatus('notifications', permission[0].toUpperCase() + permission.slice(1), 'Notification permission is ' + permission + '.', permission === 'granted' ? 'good' : permission === 'denied' ? 'bad' : '');
+      } catch {
+        setStatus('notifications', 'Request unavailable', 'This browser did not allow a permission request.', 'warn');
+      }
+    });
+    byId('notification-test').addEventListener('click', async () => {
+      if (!('Notification' in window)) {
+        setValue('notification-last-test', 'Unsupported');
+        return;
+      }
+      if (Notification.permission !== 'granted') {
+        setValue('notification-last-test', 'Grant permission first');
+        setStatus('notifications', 'Permission required', 'Grant notification permission with the Request access button before running a local test.', 'warn');
+        return;
+      }
+      try {
+        if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+          const registration = await navigator.serviceWorker.ready;
+          await registration.showNotification('System Fieldnotes test', { body: 'Local test notification. No push server was contacted.', icon: './app-icon.svg', tag: 'fieldnotes-test' });
+        } else {
+          new Notification('System Fieldnotes test', { body: 'Local test notification. No push server was contacted.' });
+        }
+        setValue('notification-last-test', new Date().toLocaleTimeString());
+        setStatus('notifications', 'Test delivered', 'A local notification was created on this device.', 'good');
+      } catch (error) {
+        setValue('notification-last-test', 'Failed');
+        setStatus('notifications', 'Test failed', error.message || 'The browser blocked the local notification.', 'warn');
+      }
+    });
+    byId('auto-refresh').addEventListener('change', saveSettings);
+    byId('interval').addEventListener('change', saveSettings);
+    window.addEventListener('online', refreshStatus);
+    window.addEventListener('offline', refreshStatus);
+    const networkInformation = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+    if (networkInformation && networkInformation.addEventListener) networkInformation.addEventListener('change', refreshStatus);
+
+    byId('auto-refresh').checked = Boolean(saved.autoRefresh);
+    byId('interval').value = ['15', '30', '60'].includes(String(saved.interval)) ? String(saved.interval) : '30';
+    refreshStatus().then(saveSettings);
+
+    let installPrompt = null;
+    let appRegistration = null;
+    byId('install-app').addEventListener('click', async () => {
+      if (!installPrompt) return;
+      await installPrompt.prompt();
+      const choice = await installPrompt.userChoice;
+      setValue('app-status', choice.outcome === 'accepted' ? 'App installation started.' : 'Installation dismissed.');
+      installPrompt = null;
+      byId('install-app').hidden = true;
+    });
+    byId('update-app').addEventListener('click', () => {
+      const waiting = appRegistration && appRegistration.waiting;
+      if (!waiting) {
+        window.location.reload();
+        return;
+      }
+      navigator.serviceWorker.addEventListener('controllerchange', () => window.location.reload(), { once: true });
+      waiting.postMessage({ type: 'SKIP_WAITING' });
+    });
+    window.addEventListener('beforeinstallprompt', (event) => {
+      event.preventDefault();
+      installPrompt = event;
+      byId('install-app').hidden = false;
+      setValue('app-status', 'Install is available from the browser or this button.');
+    });
+    window.addEventListener('appinstalled', () => {
+      byId('install-app').hidden = true;
+      setValue('app-status', 'Installed on this device.');
+    });
+    if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+      navigator.serviceWorker.register('./service-worker.js').then((registration) => {
+        appRegistration = registration;
+        setValue('app-status', 'Offline app shell ready.');
+        if (registration.waiting) byId('update-app').hidden = false;
+        registration.addEventListener('updatefound', () => {
+          const worker = registration.installing;
+          if (!worker) return;
+          worker.addEventListener('statechange', () => {
+            if (worker.state === 'installed' && navigator.serviceWorker.controller) {
+              byId('update-app').hidden = false;
+              setValue('app-status', 'An app update is ready.');
+            }
+          });
+        });
+        navigator.serviceWorker.addEventListener('controllerchange', () => window.location.reload());
+      }).catch(() => setValue('app-status', 'Offline install requires localhost or HTTPS.'));
+    } else {
+      setValue('app-status', 'Open this app on localhost or HTTPS to install it.');
+    }
+  </script>
+</body>
+</html>
